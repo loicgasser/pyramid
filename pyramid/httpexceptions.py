@@ -215,18 +215,26 @@ ${body}''')
  </body>
 </html>''')
 
+    default_content_type = None
+
+    response_content_types = ('text/html', 'application/json', 'text/plain')
+
     ## Set this to True for responses that should have no request body
     empty_body = False
 
     def __init__(self, detail=None, headers=None, comment=None,
-                 body_template=None, json_formatter=None, **kw):
+                 body_template=None, json_formatter=None,
+                 default_content_type=None, **kw):
         status = '%s %s' % (self.code, self.title)
         Response.__init__(self, status=status, **kw)
         Exception.__init__(self, detail)
         self.detail = self.message = detail
+        self.default_content_type = default_content_type
         if headers:
             self.headers.extend(headers)
         self.comment = comment
+        if default_content_type in self.response_content_types:
+            self.default_content_type = default_content_type
         if body_template is not None:
             self.body_template = body_template
             self.body_template_obj = Template(body_template)
@@ -251,9 +259,10 @@ ${body}''')
             comment = self.comment or ''
             accept_value = environ.get('HTTP_ACCEPT', '')
             accept = MIMEAccept(accept_value)
-            # Attempt to match text/html or application/json, if those don't
-            # match, we will fall through to defaulting to text/plain
-            match = accept.best_match(['text/html', 'application/json'])
+            if self.default_content_type is not None:
+                match = accept.best_match([self.default_content_type])
+            else:
+                match = accept.best_match(['application/json', 'text/html'])
 
             if match == 'text/html':
                 self.content_type = 'text/html'
